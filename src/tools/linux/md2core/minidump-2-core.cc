@@ -41,11 +41,11 @@
 #include <sys/user.h>
 #include <unistd.h>
 
+#include <limits>
 #include <map>
+#include <set>
 #include <string>
 #include <vector>
-#include <set>
-#include <limits>
 
 #include "common/linux/memory_mapped_file.h"
 #include "common/minidump_type_helper.h"
@@ -1208,7 +1208,6 @@ ParseMemList(const Options& options, CrashedProcess* crashinfo,
           const MinidumpMemoryRange& range, const MinidumpMemoryRange& full_file) {
   if (options.verbose) {
     fputs("MD_MEMORY_LIST_STREAM:\n", stderr);
-    //fwrite(range.data(), range.length(), 1, stderr);
   }
 
   uint32_t region_count;
@@ -1218,11 +1217,11 @@ ParseMemList(const Options& options, CrashedProcess* crashinfo,
     return;
   }
 
-  region_count = *(uint32_t*)(range.GetData(0, sizeof(region_count)));
+  region_count = *reinterpret_cast<const uint32_t*>(range.GetData(0, sizeof(region_count)));
   offset += sizeof(region_count);
 
   if (options.verbose) {
-    fprintf(stderr, "Number of recodrded regions: %u\n", region_count);
+    fprintf(stderr, "Number of recorded regions: %u\n", region_count);
   }
 
   if (region_count >
@@ -1247,9 +1246,9 @@ ParseMemList(const Options& options, CrashedProcess* crashinfo,
   }
 
   for (unsigned int region_index = 0; region_index < region_count; ++region_index) {
-    MDMemoryDescriptor* descriptor = (MDMemoryDescriptor*)range.GetData(
+    const MDMemoryDescriptor* descriptor = reinterpret_cast<const MDMemoryDescriptor*>(range.GetData(
             offset + region_index * sizeof(MDMemoryDescriptor),
-            sizeof(MDMemoryDescriptor));
+            sizeof(MDMemoryDescriptor)));
 
     uint64_t base_address = descriptor->start_of_memory_range;
     uint32_t region_size = descriptor->memory.data_size;
@@ -1371,7 +1370,7 @@ main(int argc, const char* argv[]) {
   // Second phase to modify info
   for (unsigned i = 0; i < header->stream_count; ++i) {
     const MDRawDirectory* dirent =
-        dump.GetArrayElement<MDRawDirectory>(header->stream_directory_rva, i);
+      dump.GetArrayElement<MDRawDirectory>(header->stream_directory_rva, i);
     switch (dirent->stream_type) {
         case MD_MEMORY_LIST_STREAM:
           ParseMemList(options, &crashinfo, dump.Subrange(dirent->location),
@@ -1384,11 +1383,9 @@ main(int argc, const char* argv[]) {
   }
 
   if (options.verbose) {
-    for(std::set<uint32_t>::iterator it = skipped_types.begin();
-        it != skipped_types.end();
-        ++it) {
-          fprintf(stderr, "Skipping %x\n", *it);
-        }
+    for(const auto& type : skipped_types) {
+      fprintf(stderr, "Skipping %x\n", type);
+    }
   }
 
   AugmentMappings(options, &crashinfo, dump);
