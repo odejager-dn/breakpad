@@ -65,7 +65,7 @@ string GetStdoutFromCommand(string cmd) {
 }
 
 // Test that a heap memory region can be inspected in gdb
-TEST(Minidump2CoreGdbTest, HeapMemory) {
+TEST(Minidump2CoreGdbTest, DISABLED_HeapMemory) {
   // Get some heap memory.
   const uint32_t MEM_SIZE = 100;
   char* memory = new char[MEM_SIZE];
