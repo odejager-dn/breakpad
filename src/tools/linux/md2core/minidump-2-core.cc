@@ -1233,17 +1233,16 @@ static void ParseMemList(const Options& options,
     return;
   }
 
-  uint32_t expected_size = range.length();
+  uint32_t expected_size =
+      sizeof(region_count) + region_count * sizeof(MDMemoryDescriptor);
+  uint32_t actual_size = range.length();
 
-  if (expected_size !=
-      sizeof(region_count) + region_count * sizeof(MDMemoryDescriptor)) {
-    // may be padded with 4 bytes on 64bit ABIs for alignment
-    if (expected_size ==
-        sizeof(region_count) + 4 + region_count * sizeof(MDMemoryDescriptor)) {
+  if (actual_size != expected_size) {
+    // May be padded with 4 bytes on 64bit ABIs for alignment.
+    if (actual_size == expected_size + 4) {
       offset += 4;
     } else {
-      fprintf(stderr, "Size mismatch, %u != %lu\n", expected_size,
-              sizeof(region_count) + region_count * sizeof(MDMemoryDescriptor));
+      fprintf(stderr, "Size mismatch, %u != %lu\n", actual_size, expected_size);
       return;
     }
   }
@@ -1261,18 +1260,19 @@ static void ParseMemList(const Options& options,
     // Check for base + size overflow or undersize.
     if (region_size == 0 ||
         region_size > numeric_limits<uint64_t>::max() - base_address) {
-      fprintf(stderr, "Memory region problem, region %u/%u, base: %lx, size %x",
+      fprintf(stderr,
+              "Memory region problem, region %u/%u, base: %" PRIx64 ", size %x",
               region_index, region_count, base_address, region_size);
       return;
     }
 
-    string data =
-        string((const char*)full_file.GetData(descriptor->memory.rva,
-                                              descriptor->memory.data_size),
-               descriptor->memory.data_size);
+    string data = string(reinterpret_cast<const char*>(
+        full_file.GetData(descriptor->memory.rva, descriptor->memory.data_size),
+        descriptor->memory.data_size));
 
     if (options.verbose) {
-      fprintf(stderr, "0x%lx-0x%lx\n", descriptor->start_of_memory_range,
+      fprintf(stderr, "0x%" PRIx64 "-0x%" PRIx64 "\n",
+              descriptor->start_of_memory_range,
               descriptor->start_of_memory_range + descriptor->memory.data_size);
     }
 
@@ -1325,7 +1325,7 @@ main(int argc, const char* argv[]) {
 
   std::set<uint32_t> skipped_types;
 
-  // First phase to gather all info
+  // First phase to gather all info.
   for (unsigned i = 0; i < header->stream_count; ++i) {
     const MDRawDirectory* dirent =
         dump.GetArrayElement<MDRawDirectory>(header->stream_directory_rva, i);
@@ -1373,7 +1373,7 @@ main(int argc, const char* argv[]) {
     }
   }
 
-  // Second phase to modify info
+  // Second phase to modify info.
   for (unsigned i = 0; i < header->stream_count; ++i) {
     const MDRawDirectory* dirent =
         dump.GetArrayElement<MDRawDirectory>(header->stream_directory_rva, i);
