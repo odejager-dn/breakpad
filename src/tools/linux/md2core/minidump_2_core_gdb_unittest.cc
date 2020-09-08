@@ -30,6 +30,9 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #include <string>
 
@@ -83,7 +86,9 @@ TEST(Minidump2CoreGdbTest, HeapMemory) {
 
   const char *md = handler.minidump_descriptor().path();
 
-  ASSERT_FALSE(system(string("du -h ").append(md).c_str()));
+  struct stat st;
+  ASSERT_EQ(stat(md, &st), 0);
+  ASSERT_GT(st.st_size, 0);
 
   // Convert to core
   ASSERT_FALSE(system(string("./src/tools/linux/md2core/minidump-2-core ")
